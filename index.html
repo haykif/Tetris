@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050509">
+<title>Tetris — Haykif</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="brand"><span class="logo">T</span><div><strong>TETRIS</strong><small>HTML5 EDITION</small></div></div>
+    <button id="pauseBtn" class="icon-btn" aria-label="Pause">Ⅱ</button>
+  </header>
+
+  <section class="game-layout">
+    <aside class="panel left-panel">
+      <div class="card"><h2>HOLD</h2><canvas id="hold" width="120" height="96"></canvas><small>Shift / C</small></div>
+      <div class="card controls">
+        <h2>CONTROLS</h2>
+        <p><kbd>←</kbd><kbd>→</kbd> Move</p>
+        <p><kbd>↓</kbd> Soft drop</p>
+        <p><kbd>↑</kbd> Rotate</p>
+        <p><kbd>Space</kbd> Hard drop</p>
+        <p><kbd>C</kbd> Hold</p>
+        <p><kbd>P</kbd> Pause</p>
+      </div>
+    </aside>
+
+    <section class="board-wrap">
+      <div class="board-frame">
+        <canvas id="board" width="300" height="600" aria-label="Tetris board"></canvas>
+        <div id="overlay" class="overlay"><h1>TETRIS</h1><p id="overlayText">Press a key to start</p><button id="startBtn">START</button></div>
+      </div>
+    </section>
+
+    <aside class="panel right-panel">
+      <div class="card stat"><h2>SCORE</h2><strong id="score">0</strong></div>
+      <div class="card stat"><h2>HIGH SCORE</h2><strong id="high">0</strong></div>
+      <div class="card stat"><h2>LEVEL</h2><strong id="level">1</strong></div>
+      <div class="card stat"><h2>LINES</h2><strong id="lines">0</strong></div>
+      <div class="card next"><h2>NEXT</h2><canvas id="next" width="120" height="280"></canvas></div>
+    </aside>
+  </section>
+  <footer>7-bag randomizer • SRS rotation • ghost piece • hold • local high score</footer>
+</main>
+<script src="game.js"></script>
+</body>
+</html>
