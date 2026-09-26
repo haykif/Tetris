@@ -1,5 +1,5 @@
 const COLS=10,ROWS=20,CELL=30;
-const COLORS={I:"#00b8d4",J:"#2463d8",L:"#e98b22",O:"#d8c51b",S:"#3cae54",T:"#8b43b8",Z:"#c83d43"};
+const COLORS={I:"#00ff66",J:"#00ff66",L:"#00ff66",O:"#00ff66",S:"#00ff66",T:"#00ff66",Z:"#00ff66"};
 const SHAPES={I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],J:[[1,0,0],[1,1,1],[0,0,0]],L:[[0,0,1],[1,1,1],[0,0,0]],O:[[1,1],[1,1]],S:[[0,1,1],[1,1,0],[0,0,0]],T:[[0,1,0],[1,1,1],[0,0,0]],Z:[[1,1,0],[0,1,1],[0,0,0]]};
 const TYPES=["I","J","L","O","S","T","Z"];
 const SPEED=[800,717,633,550,467,383,300,217,133,100,83,67,50,42,34,25,20,17,14,11,9,8,7,6,6,5,5,4,4,3];
@@ -24,7 +24,7 @@ function gameOver(){running=false;high=Math.max(high,score);localStorage.tetrisH
 function start(){board=Array.from({length:ROWS},()=>Array(COLS).fill(null));bag=[];nextType=nextPiece();score=0;lines=0;level=0;running=true;paused=false;overlay.classList.add("hidden");startBtn.textContent="START";spawn();update();last=performance.now();requestAnimationFrame(loop)}
 function pause(){if(!running)return;paused=!paused;overlay.classList.toggle("hidden",!paused);overlayText.textContent="PAUSED";startBtn.textContent="RESUME";if(!paused){last=performance.now();requestAnimationFrame(loop)}}
 function update(){const pad=(n,w)=>String(n).padStart(w,"0");scoreEl.textContent=pad(score,6);linesEl.textContent=pad(lines,3);levelEl.textContent=pad(level,2);highEl.textContent=pad(high,6)}
-function drawBlock(c,x,y,t,size=CELL){c.fillStyle=COLORS[t];c.fillRect(x*size+1,y*size+1,size-2,size-2);c.fillStyle="#fff4";c.fillRect(x*size+2,y*size+2,size-5,Math.max(2,size*.12))}
+function drawBlock(c,x,y,t,size=CELL){c.fillStyle=COLORS[t];c.fillRect(x*size+1,y*size+1,size-2,size-2);c.fillStyle="#00aa44";c.fillRect(x*size+2,y*size+2,size-5,Math.max(2,size*.12))}
 function drawPiece(c,p,ox=0,oy=0,size=CELL){p.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v&&oy+y>=0)drawBlock(c,ox+x,oy+y,p.type,size)}))}
 function draw(){ctx.fillStyle="#000";ctx.fillRect(0,0,300,600);for(let x=0;x<COLS;x++)for(let y=0;y<ROWS;y++)if(board?.[y]?.[x])drawBlock(ctx,x,y,board[y][x]);if(piece)drawPiece(ctx,piece,piece.x,piece.y)}
 function drawNext(){nctx.fillStyle="#0b0b0b";nctx.fillRect(0,0,120,100);if(!nextType)return;const p={type:nextType,matrix:clone(nextType)},size=22,w=p.matrix[0].length*size,h=p.matrix.length*size;drawPiece(nctx,p,Math.floor((120-w)/2/size),Math.floor((100-h)/2/size),size)}
