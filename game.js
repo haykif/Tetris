@@ -1,35 +1,36 @@
 const COLS=10,ROWS=20,CELL=30;
-const COLORS={I:"#25d9e8",J:"#3d67ff",L:"#ff9d24",O:"#ffe34d",S:"#49e36f",T:"#b05cff",Z:"#ff4058"};
+const COLORS={I:"#00b8d4",J:"#2463d8",L:"#e98b22",O:"#d8c51b",S:"#3cae54",T:"#8b43b8",Z:"#c83d43"};
 const SHAPES={I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],J:[[1,0,0],[1,1,1],[0,0,0]],L:[[0,0,1],[1,1,1],[0,0,0]],O:[[1,1],[1,1]],S:[[0,1,1],[1,1,0],[0,0,0]],T:[[0,1,0],[1,1,1],[0,0,0]],Z:[[1,1,0],[0,1,1],[0,0,0]]};
-const TYPES=Object.keys(SHAPES);
-const boardCanvas=document.querySelector("#board"),ctx=boardCanvas.getContext("2d"),holdCanvas=document.querySelector("#hold"),hctx=holdCanvas.getContext("2d"),nextCanvas=document.querySelector("#next"),nctx=nextCanvas.getContext("2d");
-let board,piece,nextQueue=[],holdType=null,canHold=true,score=0,lines=0,level=1,high=Number(localStorage.tetrisHigh||0),running=false,paused=false,last=0,dropTimer=0,bag=[];
+const TYPES=["I","J","L","O","S","T","Z"];
+const SPEED=[800,717,633,550,467,383,300,217,133,100,83,67,50,42,34,25,20,17,14,11,9,8,7,6,6,5,5,4,4,3];
+const boardCanvas=document.querySelector("#board"),ctx=boardCanvas.getContext("2d"),nextCanvas=document.querySelector("#next"),nctx=nextCanvas.getContext("2d");
 const scoreEl=document.querySelector("#score"),highEl=document.querySelector("#high"),levelEl=document.querySelector("#level"),linesEl=document.querySelector("#lines"),overlay=document.querySelector("#overlay"),overlayText=document.querySelector("#overlayText"),startBtn=document.querySelector("#startBtn");
-highEl.textContent=high;
-function matrix(t){return SHAPES[t].map(r=>r.slice())}
-function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function getType(){if(!bag.length)bag=shuffle(TYPES.slice());return bag.pop()}
-function refill(){while(nextQueue.length<5)nextQueue.push(getType())}
-function spawn(type=nextQueue.shift()){refill();piece={type,matrix:matrix(type),x:Math.floor((COLS-matrix(type)[0].length)/2),y:0};canHold=true;if(collides(piece))gameOver()}
-function rotate(m,dir){const a=m.map(r=>r.slice());for(let y=0;y<a.length;y++)for(let x=0;x<y;x++)[a[x][y],a[y][x]]=[a[y][x],a[x][y]];if(dir>0)a.forEach(r=>r.reverse());else a.reverse();return a}
-function collides(p,dx=0,dy=0,m=p.matrix){for(let y=0;y<m.length;y++)for(let x=0;x<m[y].length;x++)if(m[y][x]&&(p.x+x+dx<0||p.x+x+dx>=COLS||p.y+y+dy>=ROWS||(p.y+y+dy>=0&&board[p.y+y+dy][p.x+x+dx])))return true;return false}
-function move(dx,dy){if(!piece||paused)return false;if(!collides(piece,dx,dy)){piece.x+=dx;piece.y+=dy;return true}return false}
-function tryRotate(dir){const m=rotate(piece.matrix,dir),tests=[[0,0],[-1,0],[1,0],[-2,0],[2,0],[0,-1]];for(const [dx,dy]of tests)if(!collides(piece,dx,dy,m)){piece.matrix=m;piece.x+=dx;piece.y+=dy;return true}return false}
+let board,piece,nextType,score=0,lines=0,level=0,high=Number(localStorage.tetrisHigh||0),running=false,paused=false,last=0,fall=0,bag=[],lockTimer=0;
+const keys={left:false,right:false,down:false,leftAt:0,rightAt:0};
+
+function clone(t){return SHAPES[t].map(r=>r.slice())}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function nextPiece(){if(!bag.length)bag=shuffle(TYPES.slice());return bag.pop()}
+function spawn(){const t=nextType||nextPiece();nextType=nextPiece();piece={type:t,matrix:clone(t),x:Math.floor((COLS-clone(t)[0].length)/2),y:-1};lockTimer=0;if(collides(piece))gameOver()}
+function collides(p,dx=0,dy=0,m=p.matrix){for(let y=0;y<m.length;y++)for(let x=0;x<m[y].length;x++)if(m[y][x]){const X=p.x+x+dx,Y=p.y+y+dy;if(X<0||X>=COLS||Y>=ROWS)return true;if(Y>=0&&board[Y][X])return true}return false}
+function move(dx,dy){if(collides(piece,dx,dy))return false;piece.x+=dx;piece.y+=dy;lockTimer=0;return true}
+function rotate(m){const a=m.map(r=>r.slice());for(let y=0;y<a.length;y++)for(let x=0;x<y;x++)[a[x][y],a[y][x]]=[a[y][x],a[x][y]];a.forEach(r=>r.reverse());return a}
+function turn(){const m=rotate(piece.matrix);for(const dx of [0,-1,1,-2,2])if(!collides(piece,dx,0,m)){piece.matrix=m;piece.x+=dx;lockTimer=0;return true}return false}
+function merge(){for(let y=0;y<piece.matrix.length;y++)for(let x=0;x<piece.matrix[y].length;x++)if(piece.matrix[y][x]&&piece.y+y>=0)board[piece.y+y][piece.x+x]=piece.type}
+function clearLines(){let n=0;for(let y=ROWS-1;y>=0;y--)if(board[y].every(Boolean)){board.splice(y,1);board.unshift(Array(COLS).fill(null));n++;y++}if(n){score += [0,40,100,300,1200][n]*(level+1);lines+=n;level=Math.min(29,Math.floor(lines/10));if(score>high){high=score;localStorage.tetrisHigh=high}}}
+function lock(){merge();clearLines();spawn();update()}
 function hardDrop(){let d=0;while(move(0,1))d++;score+=d*2;lock()}
-function ghostY(){let y=piece.y;while(!collides(piece,0,y-piece.y+1))y++;return y}
-function merge(){piece.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v&&piece.y+y>=0)board[piece.y+y][piece.x+x]=piece.type}))}
-function lock(){merge();let cleared=0;for(let y=ROWS-1;y>=0;y--)if(board[y].every(Boolean)){board.splice(y,1);board.unshift(Array(COLS).fill(null));cleared++;y++}if(cleared){const pts=[0,100,300,500,800][cleared]*(level);score+=pts;lines+=cleared;level=1+Math.floor(lines/10)}spawn();updateStats()}
-function hold(){if(!piece||!canHold||paused)return;const t=piece.type;if(holdType===null){holdType=t;spawn()}else{const swap=holdType;holdType=t;spawn(swap)}canHold=false;draw()}
-function gameOver(){running=false;high=Math.max(high,score);localStorage.tetrisHigh=high;overlay.classList.remove("hidden");overlayText.textContent="GAME OVER — Score "+score;startBtn.textContent="PLAY AGAIN"}
-function start(){board=Array.from({length:ROWS},()=>Array(COLS).fill(null));bag=[];nextQueue=[];holdType=null;score=0;lines=0;level=1;paused=false;running=true;refill();spawn();overlay.classList.add("hidden");startBtn.textContent="START";updateStats();last=performance.now();requestAnimationFrame(loop)}
-function togglePause(){if(!running)return;paused=!paused;overlay.classList.toggle("hidden",!paused);overlayText.textContent="PAUSED";startBtn.textContent="RESUME";if(!paused){last=performance.now();requestAnimationFrame(loop)}}
-function updateStats(){scoreEl.textContent=score;highEl.textContent=high;levelEl.textContent=level;linesEl.textContent=lines}
-function drawCell(c,x,y,size=CELL,alpha=1){c.globalAlpha=alpha;c.fillStyle=COLORS[piece?.type]||"#fff";c.fillRect(x*size+1,y*size+1,size-2,size-2);c.fillStyle="#fff";c.globalAlpha=alpha*.22;c.fillRect(x*size+2,y*size+2,size-5,Math.max(2,size*.13));c.globalAlpha=1}
-function drawPiece(c,p,ox=0,oy=0,size=CELL,alpha=1){p.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v){c.globalAlpha=alpha;c.fillStyle=COLORS[p.type];c.fillRect((ox+x)*size+1,(oy+y)*size+1,size-2,size-2);c.fillStyle="#fff";c.globalAlpha=alpha*.22;c.fillRect((ox+x)*size+2,(oy+y)*size+2,size-5,Math.max(2,size*.13));c.globalAlpha=1}}))}
-function draw(){ctx.clearRect(0,0,300,600);ctx.fillStyle="#07070b";ctx.fillRect(0,0,300,600);ctx.strokeStyle="#ffffff08";ctx.lineWidth=1;for(let x=1;x<COLS;x++){ctx.beginPath();ctx.moveTo(x*CELL,0);ctx.lineTo(x*CELL,600);ctx.stroke()}for(let y=1;y<ROWS;y++){ctx.beginPath();ctx.moveTo(0,y*CELL);ctx.lineTo(300,y*CELL);ctx.stroke()}board?.forEach((r,y)=>r.forEach((t,x)=>{if(t){ctx.fillStyle=COLORS[t];ctx.fillRect(x*CELL+1,y*CELL+1,CELL-2,CELL-2);ctx.fillStyle="#fff3";ctx.fillRect(x*CELL+2,y*CELL+2,CELL-5,4)}}));if(piece){const gy=ghostY();drawPiece(ctx,{type:piece.type,matrix:piece.matrix},piece.x,gy,.0+CELL,.18);drawPiece(ctx,piece,piece.x,piece.y,CELL,1)}}
-function mini(c,type){c.clearRect(0,0,c.canvas.width,c.canvas.height);if(!type)return;const m=matrix(type),size=24,w=m[0].length*size,h=m.length*size;drawPiece(c,{type,matrix:m},Math.floor((c.canvas.width-w)/2/size),Math.floor((c.canvas.height-h)/2/size),size,1)}
-function drawSide(){mini(hctx,holdType);nctx.clearRect(0,0,120,280);nextQueue.slice(0,5).forEach((t,i)=>{const m=matrix(t),size=19,w=m[0].length*size,h=m.length*size;drawPiece(nctx,{type:t,matrix:m},Math.floor((120-w)/2/size),Math.floor((i*55+18)/size),size,1)})}
-function drawAll(){draw();drawSide()}
-function loop(now){if(!running)return;if(!paused){const dt=now-last;last=now;dropTimer+=dt;const interval=Math.max(70,800-(level-1)*65);if(dropTimer>=interval){move(0,1);dropTimer=0}draw();drawSide();requestAnimationFrame(loop)}}
-document.addEventListener("keydown",e=>{const k=e.key.toLowerCase();if(["arrowleft","arrowright","arrowdown","arrowup"," ","shift","c","p"].includes(k)||e.code==="Space")e.preventDefault();if(!running){if(k==="p")return;start();return}if(k==="p"){togglePause();return}if(paused)return;if(k==="arrowleft")move(-1,0);else if(k==="arrowright")move(1,0);else if(k==="arrowdown"){if(move(0,1))score+=1}else if(k==="arrowup")tryRotate(1);else if(e.code==="Space")hardDrop();else if(k==="c"||k==="shift")hold();updateStats();drawAll()});
-document.querySelector("#pauseBtn").onclick=togglePause;startBtn.onclick=()=>{if(paused){togglePause()}else start()};drawSide();draw();
+function gameOver(){running=false;high=Math.max(high,score);localStorage.tetrisHigh=high;overlay.classList.remove("hidden");overlayText.textContent="GAME OVER";startBtn.textContent="PLAY AGAIN";update()}
+function start(){board=Array.from({length:ROWS},()=>Array(COLS).fill(null));bag=[];nextType=nextPiece();score=0;lines=0;level=0;running=true;paused=false;overlay.classList.add("hidden");startBtn.textContent="START";spawn();update();last=performance.now();requestAnimationFrame(loop)}
+function pause(){if(!running)return;paused=!paused;overlay.classList.toggle("hidden",!paused);overlayText.textContent="PAUSED";startBtn.textContent="RESUME";if(!paused){last=performance.now();requestAnimationFrame(loop)}}
+function update(){const pad=(n,w)=>String(n).padStart(w,"0");scoreEl.textContent=pad(score,6);linesEl.textContent=pad(lines,3);levelEl.textContent=pad(level,2);highEl.textContent=pad(high,6)}
+function drawBlock(c,x,y,t,size=CELL){c.fillStyle=COLORS[t];c.fillRect(x*size+1,y*size+1,size-2,size-2);c.fillStyle="#fff4";c.fillRect(x*size+2,y*size+2,size-5,Math.max(2,size*.12))}
+function drawPiece(c,p,ox=0,oy=0,size=CELL){p.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v&&oy+y>=0)drawBlock(c,ox+x,oy+y,p.type,size)}))}
+function draw(){ctx.fillStyle="#000";ctx.fillRect(0,0,300,600);for(let x=0;x<COLS;x++)for(let y=0;y<ROWS;y++)if(board?.[y]?.[x])drawBlock(ctx,x,y,board[y][x]);if(piece)drawPiece(ctx,piece,piece.x,piece.y)}
+function drawNext(){nctx.fillStyle="#0b0b0b";nctx.fillRect(0,0,120,100);if(!nextType)return;const p={type:nextType,matrix:clone(nextType)},size=22,w=p.matrix[0].length*size,h=p.matrix.length*size;drawPiece(nctx,p,Math.floor((120-w)/2/size),Math.floor((100-h)/2/size),size)}
+function loop(now){if(!running||paused)return;const dt=now-last;last=now;fall+=dt;if(keys.left||keys.right){const k=keys.left?"left":"right",nowT=performance.now(),at=keys[k+"At"];if(nowT-at>160&&nowT-at<1000){if(Math.floor((nowT-at-160)/45)!==Math.floor((nowT-at-160-dt)/45))move(k==="left"?-1:1,0)}}const interval=SPEED[level];if(keys.down){if(fall>45){if(move(0,1))score++;fall=0;else lockTimer+=45}}else if(fall>=interval){if(move(0,1)){}else lockTimer+=fall;fall=0}if(collides(piece,0,1)){lockTimer+=dt;if(lockTimer>500)lock()}draw();drawNext();update();requestAnimationFrame(loop)}
+function keyDown(e){const k=e.key.toLowerCase();if(["arrowleft","arrowright","arrowdown","arrowup"," "].includes(k))e.preventDefault();if(!running){if(k!=="p")start();return}if(k==="p"){pause();return}if(paused)return;if(k==="arrowleft"){if(!keys.left){keys.left=true;keys.leftAt=performance.now();move(-1,0)}}else if(k==="arrowright"){if(!keys.right){keys.right=true;keys.rightAt=performance.now();move(1,0)}}else if(k==="arrowdown")keys.down=true;else if(k==="arrowup")turn();else if(e.code==="Space")hardDrop();draw();drawNext();update()}
+function keyUp(e){const k=e.key.toLowerCase();if(k==="arrowleft")keys.left=false;if(k==="arrowright")keys.right=false;if(k==="arrowdown")keys.down=false}
+document.addEventListener("keydown",keyDown);document.addEventListener("keyup",keyUp);
+document.querySelector("#pauseBtn").onclick=pause;startBtn.onclick=()=>paused?pause():start;
+drawNext();update();
