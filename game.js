@@ -1,36 +1,31 @@
-const COLS=10,ROWS=20,CELL=30;
-const COLORS={I:"#00ff66",J:"#00ff66",L:"#00ff66",O:"#00ff66",S:"#00ff66",T:"#00ff66",Z:"#00ff66"};
-const SHAPES={I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],J:[[1,0,0],[1,1,1],[0,0,0]],L:[[0,0,1],[1,1,1],[0,0,0]],O:[[1,1],[1,1]],S:[[0,1,1],[1,1,0],[0,0,0]],T:[[0,1,0],[1,1,1],[0,0,0]],Z:[[1,1,0],[0,1,1],[0,0,0]]};
-const TYPES=["I","J","L","O","S","T","Z"];
-const SPEED=[800,717,633,550,467,383,300,217,133,100,83,67,50,42,34,25,20,17,14,11,9,8,7,6,6,5,5,4,4,3];
-const boardCanvas=document.querySelector("#board"),ctx=boardCanvas.getContext("2d"),nextCanvas=document.querySelector("#next"),nctx=nextCanvas.getContext("2d");
-const scoreEl=document.querySelector("#score"),highEl=document.querySelector("#high"),levelEl=document.querySelector("#level"),linesEl=document.querySelector("#lines"),overlay=document.querySelector("#overlay"),overlayText=document.querySelector("#overlayText"),startBtn=document.querySelector("#startBtn");
-let board,piece,nextType,score=0,lines=0,level=0,high=Number(localStorage.tetrisHigh||0),running=false,paused=false,last=0,fall=0,bag=[],lockTimer=0;
-const keys={left:false,right:false,down:false,leftAt:0,rightAt:0};
-
-function clone(t){return SHAPES[t].map(r=>r.slice())}
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function nextPiece(){if(!bag.length)bag=shuffle(TYPES.slice());return bag.pop()}
-function spawn(){const t=nextType||nextPiece();nextType=nextPiece();piece={type:t,matrix:clone(t),x:Math.floor((COLS-clone(t)[0].length)/2),y:-1};lockTimer=0;if(collides(piece))gameOver()}
-function collides(p,dx=0,dy=0,m=p.matrix){for(let y=0;y<m.length;y++)for(let x=0;x<m[y].length;x++)if(m[y][x]){const X=p.x+x+dx,Y=p.y+y+dy;if(X<0||X>=COLS||Y>=ROWS)return true;if(Y>=0&&board[Y][X])return true}return false}
-function move(dx,dy){if(collides(piece,dx,dy))return false;piece.x+=dx;piece.y+=dy;lockTimer=0;return true}
-function rotate(m){const a=m.map(r=>r.slice());for(let y=0;y<a.length;y++)for(let x=0;x<y;x++)[a[x][y],a[y][x]]=[a[y][x],a[x][y]];a.forEach(r=>r.reverse());return a}
-function turn(){const m=rotate(piece.matrix);for(const dx of [0,-1,1,-2,2])if(!collides(piece,dx,0,m)){piece.matrix=m;piece.x+=dx;lockTimer=0;return true}return false}
-function merge(){for(let y=0;y<piece.matrix.length;y++)for(let x=0;x<piece.matrix[y].length;x++)if(piece.matrix[y][x]&&piece.y+y>=0)board[piece.y+y][piece.x+x]=piece.type}
-function clearLines(){let n=0;for(let y=ROWS-1;y>=0;y--)if(board[y].every(Boolean)){board.splice(y,1);board.unshift(Array(COLS).fill(null));n++;y++}if(n){score += [0,40,100,300,1200][n]*(level+1);lines+=n;level=Math.min(29,Math.floor(lines/10));if(score>high){high=score;localStorage.tetrisHigh=high}}}
-function lock(){merge();clearLines();spawn();update()}
-function hardDrop(){let d=0;while(move(0,1))d++;score+=d*2;lock()}
-function gameOver(){running=false;high=Math.max(high,score);localStorage.tetrisHigh=high;overlay.classList.remove("hidden");overlayText.textContent="GAME OVER";startBtn.textContent="PLAY AGAIN";update()}
-function start(){board=Array.from({length:ROWS},()=>Array(COLS).fill(null));bag=[];nextType=nextPiece();score=0;lines=0;level=0;running=true;paused=false;overlay.classList.add("hidden");startBtn.textContent="START";spawn();update();last=performance.now();requestAnimationFrame(loop)}
-function pause(){if(!running)return;paused=!paused;overlay.classList.toggle("hidden",!paused);overlayText.textContent="PAUSED";startBtn.textContent="RESUME";if(!paused){last=performance.now();requestAnimationFrame(loop)}}
-function update(){const pad=(n,w)=>String(n).padStart(w,"0");scoreEl.textContent=pad(score,6);linesEl.textContent=pad(lines,3);levelEl.textContent=pad(level,2);highEl.textContent=pad(high,6)}
-function drawBlock(c,x,y,t,size=CELL){c.fillStyle=COLORS[t];c.fillRect(x*size+1,y*size+1,size-2,size-2);c.fillStyle="#00aa44";c.fillRect(x*size+2,y*size+2,size-5,Math.max(2,size*.12))}
-function drawPiece(c,p,ox=0,oy=0,size=CELL){p.matrix.forEach((r,y)=>r.forEach((v,x)=>{if(v&&oy+y>=0)drawBlock(c,ox+x,oy+y,p.type,size)}))}
-function draw(){ctx.fillStyle="#000";ctx.fillRect(0,0,300,600);for(let x=0;x<COLS;x++)for(let y=0;y<ROWS;y++)if(board?.[y]?.[x])drawBlock(ctx,x,y,board[y][x]);if(piece)drawPiece(ctx,piece,piece.x,piece.y)}
-function drawNext(){nctx.fillStyle="#0b0b0b";nctx.fillRect(0,0,120,100);if(!nextType)return;const p={type:nextType,matrix:clone(nextType)},size=22,w=p.matrix[0].length*size,h=p.matrix.length*size;drawPiece(nctx,p,Math.floor((120-w)/2/size),Math.floor((100-h)/2/size),size)}
-function loop(now){if(!running||paused)return;const dt=now-last;last=now;fall+=dt;if(keys.left||keys.right){const k=keys.left?"left":"right",nowT=performance.now(),at=keys[k+"At"];if(nowT-at>160&&nowT-at<1000){if(Math.floor((nowT-at-160)/45)!==Math.floor((nowT-at-160-dt)/45))move(k==="left"?-1:1,0)}}const interval=SPEED[level];if(keys.down){if(fall>45){if(move(0,1)){score++;fall=0}else{lockTimer+=45;fall=0}}}else if(fall>=interval){if(move(0,1)){}else lockTimer+=fall;fall=0}if(collides(piece,0,1)){lockTimer+=dt;if(lockTimer>500)lock()}draw();drawNext();update();requestAnimationFrame(loop)}
-function keyDown(e){const k=e.key.toLowerCase();if(["arrowleft","arrowright","arrowdown","arrowup"," "].includes(k))e.preventDefault();if(!running){if(k!=="p")start();return}if(k==="p"){pause();return}if(paused)return;if(k==="arrowleft"){if(!keys.left){keys.left=true;keys.leftAt=performance.now();move(-1,0)}}else if(k==="arrowright"){if(!keys.right){keys.right=true;keys.rightAt=performance.now();move(1,0)}}else if(k==="arrowdown")keys.down=true;else if(k==="arrowup")turn();else if(e.code==="Space")hardDrop();draw();drawNext();update()}
-function keyUp(e){const k=e.key.toLowerCase();if(k==="arrowleft")keys.left=false;if(k==="arrowright")keys.right=false;if(k==="arrowdown")keys.down=false}
-document.addEventListener("keydown",keyDown);document.addEventListener("keyup",keyUp);
-document.querySelector("#pauseBtn").onclick=pause;startBtn.onclick=()=>paused?pause():start();
-drawNext();update();
+const c=document.getElementById("screen"),g=c.getContext("2d");
+const FG="#00ff66",COLS=10,ROWS=20;
+const S={I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],J:[[1,0,0],[1,1,1],[0,0,0]],L:[[0,0,1],[1,1,1],[0,0,0]],O:[[1,1],[1,1]],S:[[0,1,1],[1,1,0],[0,0,0]],T:[[0,1,0],[1,1,1],[0,0,0]],Z:[[1,1,0],[0,1,1],[0,0,0]]};
+const T=["I","J","L","O","S","Z","T"];
+let b,p,n,score=0,lines=0,level=0,thousands=0,state="level",input="",preview=true,last=0,fall=0,lock=0;
+function cp(t){return S[t].map(r=>r.slice())}
+function rnd(){return T[Math.floor(Math.random()*T.length)]}
+function reset(){b=Array.from({length:ROWS},()=>Array(COLS).fill(0));score=lines=thousands=0;level=+input||0;n=rnd();spawn();state="play";last=performance.now();fall=lock=0}
+function spawn(){let t=n||rnd();n=rnd();p={t,m:cp(t),x:3,y:0};if(hit(p))state="over"}
+function hit(q,dx=0,dy=0,m=q.m){for(let y=0;y<m.length;y++)for(let x=0;x<m[y].length;x++)if(m[y][x]){let X=q.x+x+dx,Y=q.y+y+dy;if(X<0||X>=COLS||Y>=ROWS||(Y>=0&&b[Y][X]))return true}return false}
+function mv(dx,dy){if(hit(p,dx,dy))return false;p.x+=dx;p.y+=dy;lock=0;return true}
+function rot(m){let n=m.length,a=Array.from({length:n},()=>Array(n).fill(0));for(let y=0;y<n;y++)for(let x=0;x<n;x++)a[n-1-x][y]=m[y][x];return a}
+function turn(){if(p.t==="O")return;let m=rot(p.m);for(let dx of [0,-1,1,-2,2])if(!hit(p,dx,0,m)){p.m=m;p.x+=dx;lock=0;return}}
+function merge(){for(let y=0;y<p.m.length;y++)for(let x=0;x<p.m[y].length;x++)if(p.m[y][x]&&p.y+y>=0)b[p.y+y][p.x+x]=1}
+function clear(){for(let y=ROWS-1;y>=0;y--)if(b[y].every(Boolean)){b.splice(y,1);b.unshift(Array(COLS).fill(0));lines++;y++}level=Math.min(9,Math.floor(lines/10))}
+function points(d){score+=Math.max(0,19-d)+level*3+(preview?0:5);while(score>=1000){score-=1000;thousands++}}
+function lockPiece(d=0){points(Math.max(0,d));merge();clear();spawn();fall=lock=0}
+function drop(){let d=0;while(mv(0,1))d++;lockPiece(d)}
+function speed(){return Math.max(80,1000-level*80)}
+function tick(now){if(state!=="play")return;let dt=now-last;last=now;fall+=dt;if(fall>=speed()){if(!mv(0,1))lock+=dt;else lock=0;fall=0}if(hit(p,0,1)){lock+=dt;if(lock>=500)lockPiece(Math.max(0,p.y))}}
+function key(e){let k=e.key;if(state==="level"){if(/^[0-9]$/.test(k)){input=k;draw()}else if(k==="Enter"&&input!=="")reset();return}if(state==="over"){if(k!=="Escape"){state="level";input="";draw()}return}if(state!=="play")return;if(["7","ArrowLeft","a","A"].includes(k))mv(-1,0);else if(["9","ArrowRight","d","D"].includes(k))mv(1,0);else if(["8","ArrowUp","w","W"].includes(k))turn();else if(["4","ArrowDown","s","S"].includes(k)){if(mv(0,1))score++}else if(["5"," ","x","X"].includes(k))drop();else if(["1","p","P"].includes(k))preview=!preview;else return;e.preventDefault();draw()}
+document.addEventListener("keydown",key);
+function tx(x,y,s){g.fillStyle=FG;g.fillText(s,x*12,y*20)}
+function cell(x,y,on){tx(31+x*2,y+4,on?"[]":"  ")}
+function draw(){g.fillStyle="#000";g.fillRect(0,0,960,600);g.font="16px Courier New,monospace";if(state==="level"){tx(36,8,"ТЕТРИС");tx(36,10,"УРОВЕНЬ: "+(input||"_"));tx(36,12,"НАЖМИТЕ ENTER");return}tx(3,2,"ПОЛНЫХ СТРОК: "+String(lines).padStart(2," "));tx(3,3,"УРОВЕНЬ:       "+level);tx(3,4,"СЧЕТ:          "+String(score).padStart(3," "));for(let i=0;i<thousands;i++)tx(15+i,4,"¤");tx(55,3,"7: НАЛЕВО   9: НАПРАВО");tx(55,4,"8: ПОВОРОТ");tx(55,5,"4: УСКОРИТЬ   5: СБРОСИТЬ");tx(55,6,"1: ПОКАЗАТЬ СЛЕДУЮЩУЮ");tx(55,7,"0: СТЕРЕТЬ ЭТОТ ТЕКСТ");tx(55,8,"ПРОБЕЛ - СБРОСИТЬ");
+for(let y=0;y<ROWS;y++){tx(30,y+4,"<!");for(let x=0;x<COLS;x++)cell(x,y,b?.[y]?.[x]);tx(50,y+4,"!>")}tx(30,24,"<!====================!>");tx(33,25,"\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/");
+if(p)for(let y=0;y<p.m.length;y++)for(let x=0;x<p.m[y].length;x++)if(p.m[y][x]&&p.y+y>=0&&p.y+y<ROWS)cell(p.x+x,p.y+y,1);
+if(preview&&n){let q=cp(n);for(let y=0;y<q.length;y++)for(let x=0;x<q[y].length;x++)if(q[y][x])tx(55+x*2,10+y,"[]")}
+if(state==="over"){tx(35,14,"КОНЕЦ ИГРЫ");tx(35,16,"НАЖМИТЕ КЛАВИШУ")}}
+function loop(t){tick(t);draw();requestAnimationFrame(loop)}
+draw();requestAnimationFrame(loop);
